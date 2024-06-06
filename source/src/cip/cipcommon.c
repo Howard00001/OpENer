@@ -30,6 +30,7 @@
 #include "stdlib.h"
 #include "ciptypes.h"
 #include "cipstring.h"
+#include "coreSync.h"
 
 #if defined(CIP_FILE_OBJECT) && 0 != CIP_FILE_OBJECT
   #include "OpENerFileObject/cipfile.h"
@@ -124,6 +125,11 @@ EipStatus NotifyClass(const CipClass *RESTRICT const cip_class,
           /* call the service, and return what it returns */
           OPENER_TRACE_INFO("notify: calling %s service\n", service->name);
           OPENER_ASSERT(NULL != service->service_function);
+
+          /* Synchronize with intri-Core -------------------------------------------------------------------------------------------------------------------------------- */
+          parse_request(message_router_request, instance);
+          /* Synchoronize with intri-Core Done ---------------------------------------------------------------------------------------------------------------------------*/
+
           return service->service_function(instance,
                                            message_router_request,
                                            message_router_response,
@@ -1102,7 +1108,6 @@ EipStatus GetAttributeAll(CipInstance *instance,
         /* only return attributes that are flagged as being part of GetAttributeAll */
         message_router_request->request_path.attribute_number =
           attribute_number;
-
         attribute->encode(attribute->data, &message_router_response->message);
       }
       attribute++;

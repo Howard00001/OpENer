@@ -106,7 +106,7 @@
  *  set this define to 3.
  */
 #ifndef OPENER_ETHLINK_INSTANCE_CNT
-  #define OPENER_ETHLINK_INSTANCE_CNT  1
+  #define OPENER_ETHLINK_INSTANCE_CNT  30
 #endif
 
 /** @brief Set this define if you want a real interface label for the Ethernet Link object
@@ -125,7 +125,7 @@
  *  which become required because the Media Counters are implemented.
  */
 #ifndef OPENER_ETHLINK_CNTRS_ENABLE
-  #define OPENER_ETHLINK_CNTRS_ENABLE 0
+  #define OPENER_ETHLINK_CNTRS_ENABLE 1
 #endif
 
 /** @brief Set this define if you need Interface Control for Ethernet Link object
@@ -135,7 +135,7 @@
  *  of the attribute in NV data storage area.
  */
 #ifndef OPENER_ETHLINK_IFACE_CTRL_ENABLE
-  #define OPENER_ETHLINK_IFACE_CTRL_ENABLE 0
+  #define OPENER_ETHLINK_IFACE_CTRL_ENABLE 1
 #endif
 
 

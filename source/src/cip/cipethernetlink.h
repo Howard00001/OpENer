@@ -168,6 +168,8 @@ typedef struct {
   CipEthernetLinkInterfaceControl interface_control;  /** Attribute #6: control link properties */
 #endif
   CipUsint interface_type;  /**< Attribute #7: Type of interface */
+  CipUsint interface_state; /**< Attribute #8:*/
+  CipUsint admin_state;     /**< Attribute #9:*/
   CipShortString interface_label; /**< Attribute #10: Interface label */
   CipEthernetLinkMetaInterfaceCapability interface_caps; /**< Attribute #11: Interface capabilities */
 } CipEthernetLinkObject;
