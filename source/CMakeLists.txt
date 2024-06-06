@@ -32,9 +32,9 @@ if(NOT DEFINED OpENer_Device_Minor_Version)
 endif()
 
 configure_file(  
-	"${PROJECT_SOURCE_DIR}/src/ports/devicedata.h.in"
-	"${PROJECT_BINARY_DIR}/src/ports/devicedata.h"
-	)
+    "${PROJECT_SOURCE_DIR}/src/ports/devicedata.h.in"
+    "${PROJECT_BINARY_DIR}/src/ports/devicedata.h"
+    )
 
 find_path( OpENer_BUILDSUPPORT_DIR OpENer.cmake ${PROJECT_SOURCE_DIR}/buildsupport )
 
@@ -179,7 +179,14 @@ set( OpENer_ADD_CIP_OBJECTS_INCLUDES "" CACHE INTERNAL STRING )
 set( OpENer_CIP_OBJECTS_DIR ${PROJECT_SOURCE_DIR}/src/cip_objects )
 include(${OpENer_BUILDSUPPORT_DIR}/OpENer_CIP_Object_generator.cmake)
 
-# ######################################
+#######################################
 # Add subdirectories                  #
-# ######################################
+#######################################
 add_subdirectory( src )
+
+# #######################################
+# # Find and link cJSON library         #
+# #######################################
+# find_package(cJSON REQUIRED)
+
+# target_link_libraries(OpENer cjson)
