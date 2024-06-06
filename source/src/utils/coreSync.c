@@ -100,7 +100,7 @@ int parse_request(CipMessageRouterRequest *const message_router_request,
     if(serviceType == 0 && serviceCode == 0) {
         sync_ethernetlink_all(instance, cmd, interface);
     } else if (serviceType == 1 && serviceCode == 0) {
-        sync_ethernetlink(instancem, cmd, interface, attribute);
+        sync_ethernetlink(instance, cmd, interface, attribute);
     } else if (serviceType == 0 && serviceCode == 1) {
         fprintf(stderr, "ethernetlink read\n");
     } else if (serviceType == 1 && serviceCode == 1) {
