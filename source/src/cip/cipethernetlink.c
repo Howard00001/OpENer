@@ -324,13 +324,13 @@ EipStatus CipEthernetLinkInit(void) {
                       EncodeCipUsint,
                       NULL,
                       &g_ethernet_link[idx].interface_state,
-                      kGetableAllDummy);
+                      kGetableSingleAndAll);
       InsertAttribute(ethernet_link_instance,
                       9,
                       kCipUsint,
                       EncodeCipUsint,
-                      NULL,
-                      &g_ethernet_link[idx].admin_state, kGetableAllDummy);
+                      DecodeCipUsint,
+                      &g_ethernet_link[idx].admin_state, kSetAndGetAble);
       InsertAttribute(ethernet_link_instance,
                       10,
                       kCipShortString,

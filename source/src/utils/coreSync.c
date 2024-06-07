@@ -9,6 +9,9 @@
 #include <cipethernetlink.h>
 #include <cipidentity.h>
 
+#define NUM_ETHLINK_ATTR 11
+#define NUM_IDENTITY_ATTR 7
+
 const char *ethlinkAttr[] = {
     "SPEED",
     "FLAGS",
@@ -32,8 +35,6 @@ const char *identityAttr[] = {
     "SERIAL_NUMBER",
     "PRODUCT_NAME",
 };
-
-
 
 extern CipEthernetLinkObject g_ethernet_link[];
 extern CipIdentityObject g_identity;
@@ -78,8 +79,9 @@ int parse_request(CipMessageRouterRequest *const message_router_request) {
     uint16_t cmd; // 0 = read, 1 = write
     uint16_t serviceType; // 0 = all, 1 = single
     uint16_t serviceCode; // 0 = ethernetlink, 1 = identity(system)
-    uint16_t interface = message_router_request->request_path.instance_number;
+    uint16_t instance = message_router_request->request_path.instance_number;
     uint16_t attribute = message_router_request->request_path.attribute_number;
+    const CipOctet *data = message_router_request->data;
 
 
     switch(message_router_request->request_path.class_id) {
@@ -115,12 +117,12 @@ int parse_request(CipMessageRouterRequest *const message_router_request) {
     }
 
     if(serviceType == 0 && serviceCode == 0) {
-        sync_ethernetlink_all(cmd, interface);
+        sync_ethernetlink_all(cmd, instance);
     } else if (serviceType == 1 && serviceCode == 0) {
-        sync_ethernetlink(cmd, interface, attribute);
-    } else if (serviceType == 0 && serviceCode == 1) {
+        sync_ethernetlink(cmd, instance, attribute-1, data);
+    } else if (serviceType == 0 && serviceCode == 1 && instance == 1) {
         sync_identity_all(cmd);
-    } else if (serviceType == 1 && serviceCode == 1) {
+    } else if (serviceType == 1 && serviceCode == 1 && instance == 1) {
         sync_identity(cmd, attribute);
     }
 
@@ -155,7 +157,7 @@ void parse_sync_identity(char *output, uint16_t attribute) {
 
 void sync_identity(uint16_t cmd, uint16_t attribute) {
     char *msg = generate_identity_str(cmd, identityAttr[attribute], NULL);
-    char *output = write_to_socket(msg, 0);
+    char *output = write_to_socket(msg);
     if (strlen(output) != 0){
         parse_sync_identity(output, attribute);
     }
@@ -284,21 +286,42 @@ void parse_sync_ethernetlink(char *output, uint16_t interface, uint16_t attribut
     }
 }
 
-void sync_ethernetlink(uint16_t cmd, uint16_t interface, uint16_t attribute) {
-    char *msg = generate_ethernetlink_str(cmd, interface, ethlinkAttr[attribute], NULL);
-    char *output = write_to_socket(msg, 0);
-    if (strlen(output) != 0){
-        parse_sync_ethernetlink(output, interface, attribute);
+void sync_ethernetlink(uint16_t cmd, uint16_t interface, uint16_t attribute, const CipOctet *data) {
+    if (cmd == 1 && attribute == 8) { // write ADMIN_STATE (port enabled)
+        char *value = (*data == 1) ? "TRUE" : "FALSE";
+        char *msg = generate_ethernetlink_str(cmd, interface, ethlinkAttr[attribute], value);
+        write_to_socket(msg);
+    }
+    // else if(cmd==1 && attribute == 5) { // write INTERFACE_CONTROL
+    //     // Forced Duplex Mode: HALF/FULL -> 0/1
+    //     const char *duplex;
+    //     duplex = (data[0] & 1 == 0) ? "HALF" : "FULL";
+    //     // // Auto-negotiate: 0/1
+    //     const char *autoneg;
+    //     autoneg = (data[0] & 2 == 0) ? ",0" : ",1";
+
+    //     char *value = (char *)malloc(strlen(duplex) + strlen(autoneg) + 1);
+    //     strcpy(value, duplex);
+    //     strcat(value, autoneg);
+    //     char *msg = generate_ethernetlink_str(cmd, interface, ethlinkAttr[attribute], value);
+    //     // write_to_socket(msg);
+    // } 
+    else { // read
+        char *msg = generate_ethernetlink_str(cmd, interface, ethlinkAttr[attribute], NULL);
+        char *output = write_to_socket(msg);
+        if (strlen(output) != 0){
+            parse_sync_ethernetlink(output, interface, attribute);
+        }
     }
 }
 
 void sync_ethernetlink_all(uint16_t cmd, uint16_t interface) {
     for(size_t i=0; i<NUM_ETHLINK_ATTR; i++) {
-        sync_ethernetlink(cmd, interface, i);
+        sync_ethernetlink(cmd, interface, i, NULL);
     }
 }
 
-char *write_to_socket(const char* message, int serviceCode) {
+char *write_to_socket(const char* message) {
     int sockfd;
     struct sockaddr_un serv_addr;
 
@@ -312,16 +335,7 @@ char *write_to_socket(const char* message, int serviceCode) {
     // init socket server struct
     memset(&serv_addr, 0, sizeof(serv_addr));
     serv_addr.sun_family = AF_UNIX;
-    switch (serviceCode) {
-        case 0:
-            strcpy(serv_addr.sun_path, ETH_SOCKET_PATH);
-            break;
-        case 1:
-            strcpy(serv_addr.sun_path, IDENTITY_SOCKET_PATH);
-            break;
-        default:
-            return NULL;
-    }
+    strcpy(serv_addr.sun_path, ETH_SOCKET_PATH);
 
     // connect to server
     if (connect(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
@@ -331,7 +345,6 @@ char *write_to_socket(const char* message, int serviceCode) {
 
     // write to socket
     write(sockfd, message, strlen(message));
-
 
     // read from socket
     char *buffer = malloc(512); 
