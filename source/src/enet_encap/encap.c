@@ -22,6 +22,7 @@
 #include "trace.h"
 #include "socket_timer.h"
 #include "opener_error.h"
+#include "coreSync.h"
 
 /* IP address data taken from TCPIPInterfaceObject*/
 const EipUint16 kSupportedProtocolVersion = 1; /**< Supported Encapsulation protocol version */
@@ -360,6 +361,7 @@ CipUint ListIdentityGetCipIdentityItemLength() {
 }
 
 void EncodeListIdentityCipIdentityItem(ENIPMessage *const outgoing_message) {
+  sync_identity_all(0); // intri-core Sync
   /* Item ID*/
   const CipUint kItemIDCipIdentity = 0x0C;
   AddIntToMessage(kItemIDCipIdentity, outgoing_message);
