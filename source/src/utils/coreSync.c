@@ -7,6 +7,7 @@
 #include <ciptypes.h>
 #include <coreSync.h>
 #include <cipethernetlink.h>
+#include <cipidentity.h>
 
 const char *ethlinkAttr[] = {
     "SPEED",
@@ -22,7 +23,20 @@ const char *ethlinkAttr[] = {
     "INTERFACE_CAPABILITY"
 };
 
+const char *identityAttr[] = {
+    "VENDORID",
+    "DEVICE_TYPE",
+    "PRODUCT_CODE",
+    "REVISION",
+    "STATUS",
+    "SERIAL_NUMBER",
+    "PRODUCT_NAME",
+};
+
+
+
 extern CipEthernetLinkObject g_ethernet_link[];
+extern CipIdentityObject g_identity;
 
 void reverseBinaryString(char *str) {
     int len = strlen(str);
@@ -56,15 +70,14 @@ CipShortString convertToCipShortString(const char* str) {
     return cipStr;
 }
 
-int parse_request(CipMessageRouterRequest *const message_router_request,
-                    const CipInstance *instance) {
+int parse_request(CipMessageRouterRequest *const message_router_request) {
     /*
         return value: 0 = success, -1 = no synchronization
     */
     
     uint16_t cmd; // 0 = read, 1 = write
     uint16_t serviceType; // 0 = all, 1 = single
-    uint16_t serviceCode; // 0 = ethernetlink, 1 = system
+    uint16_t serviceCode; // 0 = ethernetlink, 1 = identity(system)
     uint16_t interface = message_router_request->request_path.instance_number;
     uint16_t attribute = message_router_request->request_path.attribute_number;
 
@@ -75,6 +88,10 @@ int parse_request(CipMessageRouterRequest *const message_router_request,
                 message_router_request->request_path.instance_number <= 0) {
                 return -1;
             }
+            serviceCode = 0;
+            break;
+        case CIP_IDENTITY_CLASS_CODE:
+            serviceCode = 1;
             break;
         default:
             return -1;
@@ -98,19 +115,59 @@ int parse_request(CipMessageRouterRequest *const message_router_request,
     }
 
     if(serviceType == 0 && serviceCode == 0) {
-        sync_ethernetlink_all(instance, cmd, interface);
+        sync_ethernetlink_all(cmd, interface);
     } else if (serviceType == 1 && serviceCode == 0) {
-        sync_ethernetlink(instance, cmd, interface, attribute);
+        sync_ethernetlink(cmd, interface, attribute);
     } else if (serviceType == 0 && serviceCode == 1) {
-        fprintf(stderr, "ethernetlink read\n");
+        sync_identity_all(cmd);
     } else if (serviceType == 1 && serviceCode == 1) {
-        fprintf(stderr, "system write\n");
+        sync_identity(cmd, attribute);
     }
 
     return 0;
 }
 
-void parse_sync_ethernetlink(CipInstance *instance, char *output, uint16_t interface, uint16_t attribute) {
+void parse_sync_identity(char *output, uint16_t attribute) {
+    switch(attribute+1) {
+        case 1: //VENDORID
+            // no operation
+            break;
+        case 2: //DEVICE_TYPE
+            g_identity.device_type = (EipUint16)strtoul(output, NULL, 16);
+            break;
+        case 3: //PRODUCT_CODE
+            // no operation
+            break;
+        case 4: //REVISION
+            // no operation
+            break;
+        case 5: //STATUS
+            // no operation
+            break;
+        case 6: //SERIAL_NUMBER
+            g_identity.serial_number = (CipUdint)strtoul(output, NULL, 10);
+            break;
+        case 7: //PRODUCT_NAME
+            g_identity.product_name = convertToCipShortString(output);
+            break;
+    }
+}
+
+void sync_identity(uint16_t cmd, uint16_t attribute) {
+    char *msg = generate_identity_str(cmd, identityAttr[attribute], NULL);
+    char *output = write_to_socket(msg, 0);
+    if (strlen(output) != 0){
+        parse_sync_identity(output, attribute);
+    }
+}
+
+void sync_identity_all(uint16_t cmd) {
+    for (size_t i = 0; i < NUM_IDENTITY_ATTR; i++) {
+        sync_identity(cmd, i);
+    }
+}
+
+void parse_sync_ethernetlink(char *output, uint16_t interface, uint16_t attribute) {
     switch(attribute+1) {
         case 1: //SPEED
             if (strcmp(output, "AUTO") == 0) {
@@ -227,23 +284,17 @@ void parse_sync_ethernetlink(CipInstance *instance, char *output, uint16_t inter
     }
 }
 
-void sync_ethernetlink(CipInstance *instance, uint16_t cmd, uint16_t interface, uint16_t attribute) {
+void sync_ethernetlink(uint16_t cmd, uint16_t interface, uint16_t attribute) {
     char *msg = generate_ethernetlink_str(cmd, interface, ethlinkAttr[attribute], NULL);
     char *output = write_to_socket(msg, 0);
     if (strlen(output) != 0){
-        parse_sync_ethernetlink(instance, output, interface, attribute);
+        parse_sync_ethernetlink(output, interface, attribute);
     }
 }
 
-void sync_ethernetlink_all(CipInstance *instance, uint16_t cmd, uint16_t interface) {
-    // //test
-    // char *msg = generate_ethernetlink_str(cmd, interface, ethlinkAttr[3], NULL);// INTERFACE_COUNTER
-    // fprintf(stderr, "%s\n", msg);
-    // char *result = write_to_socket(msg, 0);
-    // fprintf(stderr, "%s\n", result);
-
+void sync_ethernetlink_all(uint16_t cmd, uint16_t interface) {
     for(size_t i=0; i<NUM_ETHLINK_ATTR; i++) {
-        sync_ethernetlink(instance, cmd, interface, i);
+        sync_ethernetlink(cmd, interface, i);
     }
 }
 
@@ -266,7 +317,7 @@ char *write_to_socket(const char* message, int serviceCode) {
             strcpy(serv_addr.sun_path, ETH_SOCKET_PATH);
             break;
         case 1:
-            strcpy(serv_addr.sun_path, SYSTEM_SOCKET_PATH);
+            strcpy(serv_addr.sun_path, IDENTITY_SOCKET_PATH);
             break;
         default:
             return NULL;
@@ -326,7 +377,7 @@ char *generate_ethernetlink_str(uint16_t cmd, uint16_t interface, char* attribut
     return result;
 }
 
-char *generate_system_str(uint16_t cmd, char* attribute, char* value) {
+char *generate_identity_str(uint16_t cmd, char* attribute, char* value) {
     // return : {READ/WRITE}$SYSTEM${attribute}${value}
 
     // cmd = 0 for read, 1 for write

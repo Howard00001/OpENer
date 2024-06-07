@@ -127,7 +127,7 @@ EipStatus NotifyClass(const CipClass *RESTRICT const cip_class,
           OPENER_ASSERT(NULL != service->service_function);
 
           /* Synchronize with intri-Core -------------------------------------------------------------------------------------------------------------------------------- */
-          parse_request(message_router_request, instance);
+          parse_request(message_router_request);
           /* Synchoronize with intri-Core Done ---------------------------------------------------------------------------------------------------------------------------*/
 
           return service->service_function(instance,
